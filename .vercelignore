@@ -1,0 +1,13 @@
+.git
+.gitignore
+README.md
+node_modules
+.env
+.env.local
+.DS_Store
+*.log
+.expo
+.turbo
+.next
+.vercel
+dist
