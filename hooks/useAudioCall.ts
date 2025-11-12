@@ -35,7 +35,7 @@ export const useAudioCall = (onDisconnect?: () => void) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
-  const [connectionStatus, setConnectionStatus] = useState<string>('Connecting...');
+  const [connectionStatus, setConnectionStatus] = useState<string>('Calling...');
 
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<any>(null);
@@ -50,6 +50,7 @@ export const useAudioCall = (onDisconnect?: () => void) => {
   const isConnectedRef = useRef<boolean>(false);
   const isMutedRef = useRef<boolean>(false);
   const onDisconnectRef = useRef<(() => void) | undefined>(onDisconnect);
+  const ringingSound = useRef<Audio.Sound | null>(null);
 
   const [currentStreamId, setCurrentStreamId] = useState<string>('');
   const [currentCallId, setCurrentCallId] = useState<string>('');
@@ -149,6 +150,14 @@ export const useAudioCall = (onDisconnect?: () => void) => {
       } catch (e) {}
       playingAudioRef.current = null;
     }
+
+    if (ringingSound.current) {
+      try {
+        await ringingSound.current.stopAsync();
+        await ringingSound.current.unloadAsync();
+      } catch (e) {}
+      ringingSound.current = null;
+    }
   };
 
   const connect = async () => {
@@ -166,7 +175,9 @@ export const useAudioCall = (onDisconnect?: () => void) => {
 
   const connectWeb = async () => {
     try {
-      setConnectionStatus('Requesting microphone access...');
+      setConnectionStatus('Calling...');
+
+      await playRingingSound();
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -181,13 +192,13 @@ export const useAudioCall = (onDisconnect?: () => void) => {
       streamRef.current = stream;
       console.log('Microphone access granted');
 
-      setConnectionStatus('Connecting to server...');
       console.log('Connecting to WebSocket:', WS_URL);
 
       wsRef.current = new WebSocket(WS_URL);
 
       wsRef.current.onopen = async () => {
         console.log('WebSocket connected');
+        await stopRingingSound();
         setIsConnected(true);
         setConnectionStatus('Connected');
 
@@ -246,6 +257,7 @@ export const useAudioCall = (onDisconnect?: () => void) => {
       wsRef.current.onclose = (event) => {
         console.log('WebSocket disconnected', event.code, event.reason);
         console.log('Calling onDisconnect callback:', !!onDisconnectRef.current);
+        stopRingingSound();
         setIsConnected(false);
         setIsRecording(false);
         setConnectionStatus('Disconnected');
@@ -259,10 +271,12 @@ export const useAudioCall = (onDisconnect?: () => void) => {
 
       wsRef.current.onerror = (event) => {
         console.error('WebSocket error:', event);
+        stopRingingSound();
         setConnectionStatus('Connection Error');
       };
     } catch (error) {
       console.error('Failed to connect:', error);
+      stopRingingSound();
       const errorMessage = error instanceof Error ? error.message : String(error);
       setConnectionStatus(`Failed - ${errorMessage}`);
     }
@@ -461,7 +475,7 @@ export const useAudioCall = (onDisconnect?: () => void) => {
 
   const connectNative = async () => {
     try {
-      setConnectionStatus('Requesting microphone access...');
+      setConnectionStatus('Calling...');
 
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
@@ -477,13 +491,15 @@ export const useAudioCall = (onDisconnect?: () => void) => {
 
       console.log('Microphone access granted');
 
-      setConnectionStatus('Connecting to server...');
+      await playRingingSound();
+
       console.log('Connecting to WebSocket:', WS_URL);
 
       wsRef.current = new WebSocket(WS_URL);
 
       wsRef.current.onopen = async () => {
         console.log('WebSocket connected');
+        await stopRingingSound();
         setIsConnected(true);
         setConnectionStatus('Connected');
 
@@ -540,6 +556,7 @@ export const useAudioCall = (onDisconnect?: () => void) => {
       wsRef.current.onclose = (event) => {
         console.log('WebSocket disconnected', event.code, event.reason);
         console.log('Calling onDisconnect callback:', !!onDisconnectRef.current);
+        stopRingingSound();
         setIsConnected(false);
         setIsRecording(false);
         setConnectionStatus('Disconnected');
@@ -553,12 +570,37 @@ export const useAudioCall = (onDisconnect?: () => void) => {
 
       wsRef.current.onerror = (event) => {
         console.error('WebSocket error:', event);
+        stopRingingSound();
         setConnectionStatus('Connection Error');
       };
     } catch (error) {
       console.error('Failed to connect:', error);
+      stopRingingSound();
       const errorMessage = error instanceof Error ? error.message : String(error);
       setConnectionStatus(`Failed - ${errorMessage}`);
+    }
+  };
+
+  const playRingingSound = async () => {
+    try {
+      const audioSource = require('@/assets/phone-ringing-382734.mp3');
+      const { sound } = await Audio.Sound.createAsync(
+        audioSource,
+        { shouldPlay: true, isLooping: true, volume: 0.5 }
+      );
+      ringingSound.current = sound;
+    } catch (error) {
+      console.error('Failed to play ringing sound:', error);
+    }
+  };
+
+  const stopRingingSound = async () => {
+    if (ringingSound.current) {
+      try {
+        await ringingSound.current.stopAsync();
+        await ringingSound.current.unloadAsync();
+      } catch (e) {}
+      ringingSound.current = null;
     }
   };
 
