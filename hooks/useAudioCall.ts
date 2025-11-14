@@ -15,6 +15,7 @@ interface AudioMessage {
 
 interface StartMessage {
   type: 'start';
+  user_id:'demo-user-123',
   account_id: string;
   call_app_id: string;
   call_id: string;
@@ -207,6 +208,7 @@ export const useAudioCall = (onDisconnect?: () => void) => {
 
         const startMessage: StartMessage = {
           type: 'start',
+          user_id:'demo-user-123',
           account_id: 'mobile-app',
           call_app_id: 'mobile-app',
           call_id: callId,
@@ -508,6 +510,7 @@ export const useAudioCall = (onDisconnect?: () => void) => {
 
         const startMessage: StartMessage = {
           type: 'start',
+          user_id:'demo-user-123',
           account_id: 'mobile-app',
           call_app_id: 'mobile-app',
           call_id: callId,
